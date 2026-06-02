@@ -1,0 +1,57 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#02050c"/>
+  <circle cx="256" cy="256" r="228" fill="url(#bg)" stroke="url(#ring)" stroke-width="5"/>
+  <circle cx="256" cy="256" r="228" stroke="#1f78ff" stroke-width="2" filter="url(#ringGlow)"/>
+
+  <g filter="url(#markGlow)">
+    <path d="M128 118H207L332 257V118H386V394H334L183 228V394H128V118Z" fill="url(#mark)" stroke="#4ae6ff" stroke-width="2.4"/>
+    <path d="M183 228L334 394H386L207 118H128L183 228Z" fill="url(#diagonal)" fill-opacity="0.94"/>
+    <path d="M128 118L183 174V331L128 394V118Z" fill="url(#leftFace)" stroke="#58e8ff" stroke-width="1.8"/>
+    <path d="M386 118L332 171V331L386 394V118Z" fill="url(#rightFace)" stroke="#58e8ff" stroke-width="1.8"/>
+    <path d="M183 228L334 394" stroke="#53f4ff" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(260)">
+      <stop stop-color="#07112a"/>
+      <stop offset="0.6" stop-color="#020713"/>
+      <stop offset="1" stop-color="#010309"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="78" y1="82" x2="420" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5ff4ff"/>
+      <stop offset="0.5" stop-color="#196cff"/>
+      <stop offset="1" stop-color="#5ef3ff"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="128" y1="118" x2="386" y2="394" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#23dfff"/>
+      <stop offset="0.38" stop-color="#0c62ff"/>
+      <stop offset="1" stop-color="#061b9e"/>
+    </linearGradient>
+    <linearGradient id="diagonal" x1="153" y1="132" x2="361" y2="386" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16d9ff"/>
+      <stop offset="0.48" stop-color="#102ce0"/>
+      <stop offset="0.72" stop-color="#07105d"/>
+      <stop offset="1" stop-color="#0d4cff"/>
+    </linearGradient>
+    <linearGradient id="leftFace" x1="128" y1="118" x2="189" y2="394" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#21e4ff"/>
+      <stop offset="0.5" stop-color="#0932df"/>
+      <stop offset="1" stop-color="#0b7dff"/>
+    </linearGradient>
+    <linearGradient id="rightFace" x1="332" y1="118" x2="386" y2="394" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1ee3ff"/>
+      <stop offset="0.55" stop-color="#0a54ff"/>
+      <stop offset="1" stop-color="#0c2acc"/>
+    </linearGradient>
+    <filter id="ringGlow" x="5" y="5" width="502" height="502" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="markGlow" x="96" y="86" width="418" height="438" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+</svg>
