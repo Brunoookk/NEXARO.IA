@@ -1,43 +1,85 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || 'https://nexaro-ia.onrender.com';
 
-export async function createSession() {
-  const res = await fetch(`${BASE}/session/new`, { method: 'POST' });
-  return res.json();
+let authToken = localStorage.getItem('nexaro-token') || '';
+
+export function setAuthToken(token) {
+  authToken = token || '';
+  if (authToken) localStorage.setItem('nexaro-token', authToken);
+  else localStorage.removeItem('nexaro-token');
 }
 
-export async function clearHistory(sessionId) {
-  await fetch(`${BASE}/session/${sessionId}/clear`, { method: 'DELETE' });
+export function getAuthToken() {
+  return authToken;
 }
 
-export async function uploadPDF(sessionId, file) {
-  const form = new FormData();
-  form.append('file', file);
-  const res = await fetch(`${BASE}/upload/pdf?session_id=${sessionId}`, {
-    method: 'POST', body: form,
-  });
-  if (!res.ok) throw new Error('Upload falhou');
-  return res.json();
+async function request(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(data?.detail || 'Erro na requisicao');
+  return data;
 }
 
-export async function streamChat(sessionId, message, onToken, onDone, onError) {
+export const api = {
+  register: (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
+  login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (payload) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify(payload) }),
+  me: () => request('/me'),
+  updateMe: (payload) => request('/me', { method: 'PATCH', body: JSON.stringify(payload) }),
+  changePassword: (payload) => request('/me/change-password', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteAccount: () => request('/me', { method: 'DELETE' }),
+  getSettings: () => request('/settings'),
+  updateSettings: (payload) => request('/settings', { method: 'PATCH', body: JSON.stringify(payload) }),
+  listSessions: () => request('/sessions'),
+  dashboard: () => request('/dashboard'),
+  listConversations: (params = {}) => request(`/conversations?${new URLSearchParams(params)}`),
+  createConversation: (payload = {}) => request('/conversations', { method: 'POST', body: JSON.stringify(payload) }),
+  getConversation: (id) => request(`/conversations/${id}`),
+  updateConversation: (id, payload) => request(`/conversations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteConversation: (id) => request(`/conversations/${id}`, { method: 'DELETE' }),
+  duplicateConversation: (id) => request(`/conversations/${id}/duplicate`, { method: 'POST' }),
+  exportConversations: () => request('/conversations-export'),
+  importConversations: (payload) => request('/conversations-import', { method: 'POST', body: JSON.stringify(payload) }),
+  listSaved: (params = {}) => request(`/saved?${new URLSearchParams(params)}`),
+  createSaved: (payload) => request('/saved', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteSaved: (id) => request(`/saved/${id}`, { method: 'DELETE' }),
+  uploadPDF: (conversationId, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request(`/upload/pdf?conversation_id=${conversationId}`, { method: 'POST', body: form });
+  },
+};
+
+export async function streamChat(conversationId, message, onEvent) {
   const res = await fetch(`${BASE}/chat/stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, message }),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
+    body: JSON.stringify({ conversation_id: conversationId, message }),
   });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Falha no chat');
+  }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    const lines = decoder.decode(value).split('\n').filter(l => l.startsWith('data: '));
+    const lines = decoder.decode(value).split('\n').filter((line) => line.startsWith('data: '));
     for (const line of lines) {
       try {
-        const data = JSON.parse(line.slice(6));
-        if (data.token) onToken(data.token);
-        if (data.done) onDone();
-        if (data.error) onError(data.error);
-      } catch {}
+        onEvent(JSON.parse(line.slice(6)));
+      } catch {
+        // Ignore malformed SSE fragments.
+      }
     }
   }
 }

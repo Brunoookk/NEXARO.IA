@@ -1087,6 +1087,107 @@ textarea:focus {
   display: none;
 }
 
+.auth-page {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+  border-radius: var(--radius-xl);
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.auth-card label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-soft);
+  font-weight: 800;
+}
+
+.auth-card input {
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+}
+
+.auth-brand {
+  padding: 0;
+}
+
+.password-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 8px;
+}
+
+.password-field button {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.auth-error {
+  margin: 0;
+  color: var(--red);
+  font-weight: 700;
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-links button {
+  color: var(--brand-strong);
+  font-weight: 800;
+}
+
+.toast {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 40;
+  max-width: min(420px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.toast.success {
+  color: var(--green);
+}
+
+.toast.error {
+  color: var(--red);
+}
+
+.toast button {
+  display: grid;
+  place-items: center;
+}
+
+.chat-layout.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

@@ -2,18 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
   Bell,
-  BookOpen,
   Calendar,
   Check,
-  ChevronDown,
   Copy,
-  Crown,
-  Database,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   Filter,
-  Fingerprint,
-  Globe2,
   History,
   Home,
   Image,
@@ -25,13 +21,10 @@ import {
   MessageSquare,
   Mic,
   Moon,
-  MoreHorizontal,
   Paperclip,
-  Pencil,
   Plus,
   Search,
   Settings,
-  Shield,
   ShieldCheck,
   Sparkles,
   Star,
@@ -43,347 +36,223 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useChat } from './hooks/useChat';
+import { api, getAuthToken, setAuthToken, streamChat } from './utils/api';
 
-const STORAGE = {
-  theme: 'nexaro-theme',
-  profile: 'nexaro-profile',
-  settings: 'nexaro-settings',
-  conversations: 'nexaro-conversations',
-  saved: 'nexaro-saved',
+const emptySettings = {
+  theme: 'dark',
+  language: 'pt-BR',
+  notifications: true,
+  security_alerts: true,
+  product_updates: false,
 };
 
-const initialConversations = [
-  {
-    id: 'conv-1',
-    title: 'Planejamento de automacoes',
-    date: new Date().toISOString(),
-    favorite: true,
-    pinned: true,
-    messages: [
-      { role: 'user', content: 'Crie um plano de automacoes para atendimento.' },
-      { role: 'assistant', content: 'Podemos estruturar funis, respostas inteligentes e analise de dados.' },
-    ],
-  },
-  {
-    id: 'conv-2',
-    title: 'Resumo de contrato',
-    date: new Date(Date.now() - 86400000).toISOString(),
-    favorite: false,
-    pinned: false,
-    messages: [
-      { role: 'user', content: 'Resuma os pontos importantes deste documento.' },
-      { role: 'assistant', content: 'Identifiquei prazos, responsabilidades e clausulas de cancelamento.' },
-    ],
-  },
-  {
-    id: 'conv-3',
-    title: 'Ideias para SaaS',
-    date: new Date(Date.now() - 4 * 86400000).toISOString(),
-    favorite: true,
-    pinned: false,
-    messages: [
-      { role: 'user', content: 'Liste ideias de produto com IA.' },
-      { role: 'assistant', content: 'Sugiro copilot operacional, analise de PDFs e CRM com IA.' },
-    ],
-  },
-];
-
-const initialSaved = [
-  { id: 'save-1', type: 'Prompt', category: 'Prompts', title: 'Prompt para estrategia', content: 'Atue como consultor de estrategia e crie um plano claro com riscos e proximos passos.' },
-  { id: 'save-2', type: 'Resposta', category: 'Programacao', title: 'Checklist de deploy', content: 'Build, variaveis de ambiente, logs, cache, dominio e teste final.' },
-  { id: 'save-3', type: 'Prompt', category: 'Negocios', title: 'Analise de mercado', content: 'Analise concorrentes, ICP, proposta de valor e precificacao.' },
-  { id: 'save-4', type: 'Resposta', category: 'Estudos', title: 'Metodo de estudo', content: 'Use ciclos de leitura, resumo ativo, revisao espacada e questoes.' },
-];
-
-function readStorage(key, fallback) {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStorage(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function groupConversation(dateValue) {
-  const date = new Date(dateValue);
-  const now = new Date();
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diff = startToday - new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const days = Math.floor(diff / 86400000);
-  if (days <= 0) return 'Hoje';
-  if (days === 1) return 'Ontem';
-  if (days <= 7) return 'Ultimos 7 dias';
-  return 'Ultimos 30 dias';
-}
-
-function Metric({ label, value, icon: Icon }) {
-  return (
-    <div className="metric-card">
-      <div className="metric-icon"><Icon size={18} /></div>
-      <div>
-        <strong>{value}</strong>
-        <span>{label}</span>
-      </div>
-    </div>
-  );
-}
-
-function Pill({ children, tone = 'blue' }) {
-  return <span className={`pill pill-${tone}`}>{children}</span>;
-}
-
-function SectionHeader({ title, subtitle, action }) {
-  return (
-    <div className="section-header">
-      <div>
-        <h2>{title}</h2>
-        {subtitle && <p>{subtitle}</p>}
-      </div>
-      {action}
-    </div>
-  );
-}
-
-function EmptyState({ icon: Icon, title, text }) {
-  return (
-    <div className="empty-state">
-      <Icon size={26} />
-      <strong>{title}</strong>
-      <span>{text}</span>
-    </div>
-  );
-}
-
 function App() {
-  const chat = useChat();
+  const [token, setToken] = useState(getAuthToken());
+  const [authMode, setAuthMode] = useState('login');
   const [page, setPage] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [theme, setTheme] = useState(() => readStorage(STORAGE.theme, 'dark'));
-  const [profile, setProfile] = useState(() => readStorage(STORAGE.profile, {
-    name: 'Bruno Trindade',
-    email: 'bruno@nexaro.ai',
-    photo: '',
-    plan: 'Pro',
-    createdAt: '03/06/2026',
-  }));
-  const [settings, setSettings] = useState(() => readStorage(STORAGE.settings, {
-    language: 'pt-BR',
-    notifications: true,
-    securityAlerts: true,
-    productUpdates: false,
-  }));
-  const [conversations, setConversations] = useState(() => readStorage(STORAGE.conversations, initialConversations));
-  const [savedItems, setSavedItems] = useState(() => readStorage(STORAGE.saved, initialSaved));
-  const [activeConversationId, setActiveConversationId] = useState(conversations[0]?.id || null);
-  const [historySearch, setHistorySearch] = useState('');
-  const [historyFilter, setHistoryFilter] = useState('all');
+  const [user, setUser] = useState(null);
+  const [settings, setSettings] = useState(emptySettings);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [savedItems, setSavedItems] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historyGroup, setHistoryGroup] = useState('');
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    writeStorage(STORAGE.theme, theme);
-  }, [theme]);
+    document.documentElement.dataset.theme = settings.theme || 'dark';
+  }, [settings.theme]);
 
-  useEffect(() => writeStorage(STORAGE.profile, profile), [profile]);
-  useEffect(() => writeStorage(STORAGE.settings, settings), [settings]);
-  useEffect(() => writeStorage(STORAGE.conversations, conversations), [conversations]);
-  useEffect(() => writeStorage(STORAGE.saved, savedItems), [savedItems]);
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    bootstrap();
+  }, [token]);
 
-  const activeConversation = conversations.find((item) => item.id === activeConversationId);
-  const totalPrompts = conversations.reduce((total, item) => total + item.messages.filter((msg) => msg.role === 'user').length, 0) + chat.messages.filter((msg) => msg.role === 'user').length;
+  async function bootstrap() {
+    setLoading(true);
+    setError('');
+    try {
+      const me = await api.me();
+      setUser(me.user);
+      setSettings(me.settings);
+      await Promise.all([loadConversations(), loadSaved(), loadDashboard(), loadSessions()]);
+    } catch (err) {
+      setAuthToken('');
+      setToken('');
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const createConversation = () => {
-    const next = {
-      id: `conv-${Date.now()}`,
-      title: 'Nova conversa',
-      date: new Date().toISOString(),
-      favorite: false,
-      pinned: false,
-      messages: [],
-    };
-    setConversations((items) => [next, ...items]);
-    setActiveConversationId(next.id);
+  async function loadConversations(params = {}) {
+    const data = await api.listConversations(params);
+    setConversations(data);
+    return data;
+  }
+
+  async function loadConversation(id) {
+    const data = await api.getConversation(id);
+    setActiveConversation(data);
+    return data;
+  }
+
+  async function loadSaved(params = {}) {
+    const data = await api.listSaved(params);
+    setSavedItems(data);
+  }
+
+  async function loadDashboard() {
+    const data = await api.dashboard();
+    setDashboard(data);
+    setUser(data.user);
+    setSettings(data.settings);
+  }
+
+  async function loadSessions() {
+    const data = await api.listSessions();
+    setSessions(data);
+  }
+
+  async function run(action, successMessage) {
+    setError('');
+    setNotice('');
+    try {
+      const result = await action();
+      if (successMessage) setNotice(successMessage);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
+  async function handleAuth(payload) {
+    const method = authMode === 'register' ? api.register : api.login;
+    const data = await run(() => method(payload));
+    setAuthToken(data.token);
+    setToken(data.token);
+    setUser(data.user);
+    setSettings(data.settings);
+  }
+
+  async function logout() {
+    await api.logout().catch(() => {});
+    setAuthToken('');
+    setToken('');
+    setUser(null);
+    setConversations([]);
+    setActiveConversation(null);
+  }
+
+  async function createConversation() {
+    const created = await run(() => api.createConversation({ title: 'Nova conversa' }));
+    setActiveConversation(created);
+    await loadConversations();
     setPage('chat');
-  };
+    return created;
+  }
 
-  const updateConversation = (id, patch) => {
-    setConversations((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
-  };
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    let conversation = activeConversation;
+    if (!conversation) {
+      conversation = await api.createConversation({ title: 'Nova conversa' });
+      setActiveConversation(conversation);
+    }
+    const tempUser = { id: `temp-user-${Date.now()}`, role: 'user', content: text };
+    const tempAssistant = { id: `temp-assistant-${Date.now()}`, role: 'assistant', content: '' };
+    setActiveConversation((current) => ({ ...conversation, messages: [...(current?.messages || []), tempUser, tempAssistant] }));
+    await streamChat(conversation.id, text, (event) => {
+      if (event.token) {
+        setActiveConversation((current) => ({
+          ...current,
+          messages: current.messages.map((msg) => (msg.id === tempAssistant.id ? { ...msg, content: msg.content + event.token } : msg)),
+        }));
+      }
+      if (event.error) setError(event.error);
+    });
+    await loadConversation(conversation.id);
+    await loadConversations();
+    await loadDashboard();
+  }
 
-  const deleteConversation = (id) => {
-    setConversations((items) => items.filter((item) => item.id !== id));
-    if (activeConversationId === id) setActiveConversationId(conversations.find((item) => item.id !== id)?.id || null);
-  };
-
-  const duplicateConversation = (id) => {
-    const item = conversations.find((conv) => conv.id === id);
-    if (!item) return;
-    const copy = { ...item, id: `conv-${Date.now()}`, title: `${item.title} copia`, date: new Date().toISOString(), pinned: false };
-    setConversations((items) => [copy, ...items]);
-  };
-
-  const exportConversations = () => {
-    const blob = new Blob([JSON.stringify(conversations, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'nexaro-conversas.json';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importConversations = async (file) => {
-    if (!file) return;
-    const text = await file.text();
-    const imported = JSON.parse(text);
-    if (Array.isArray(imported)) setConversations(imported);
-  };
-
-  const saveCurrentAssistantMessage = () => {
-    const last = [...chat.messages].reverse().find((msg) => msg.role === 'assistant' && msg.content);
-    if (!last) return;
-    setSavedItems((items) => [
-      { id: `save-${Date.now()}`, type: 'Resposta', category: 'Prompts', title: 'Resposta salva', content: last.content },
-      ...items,
-    ]);
-  };
-
-  const navigation = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'chat', label: 'Chat IA', icon: MessageSquare },
-    { id: 'history', label: 'Historico', icon: History },
-    { id: 'saved', label: 'Favoritos', icon: Star },
-    { id: 'settings', label: 'Configuracoes', icon: Settings },
-    { id: 'profile', label: 'Perfil', icon: User },
-    { id: 'security', label: 'Seguranca', icon: ShieldCheck },
-    { id: 'terms', label: 'Termos', icon: FileText },
+  const nav = [
+    ['dashboard', 'Dashboard', Home],
+    ['chat', 'Chat IA', MessageSquare],
+    ['history', 'Historico', History],
+    ['saved', 'Mensagens salvas', Star],
+    ['settings', 'Configuracoes', Settings],
+    ['profile', 'Perfil', User],
+    ['security', 'Seguranca', ShieldCheck],
+    ['terms', 'Termos', FileText],
   ];
+
+  if (loading) return <LoadingScreen />;
+  if (!token || !user) return <AuthScreen mode={authMode} setMode={setAuthMode} onSubmit={handleAuth} error={error} setError={setError} />;
 
   return (
     <div className="app-shell">
       <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="brand">
           <div className="brand-mark"><Sparkles size={20} /></div>
-          <div>
-            <strong>NEXARO IA</strong>
-            <span>AI workspace</span>
-          </div>
-          <button className="icon-button mobile-only" onClick={() => setSidebarOpen(false)} aria-label="Fechar menu">
-            <X size={18} />
-          </button>
+          <div><strong>NEXARO IA</strong><span>Workspace seguro</span></div>
+          <button className="icon-button mobile-only" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
         </div>
-
-        <button className="new-chat" onClick={createConversation}>
-          <Plus size={18} />
-          Nova conversa
-        </button>
-
+        <button className="new-chat" onClick={createConversation}><Plus size={18} /> Nova conversa</button>
         <nav className="main-nav">
-          {navigation.map(({ id, label, icon: Icon }) => (
+          {nav.map(([id, label, Icon]) => (
             <button key={id} className={page === id ? 'active' : ''} onClick={() => { setPage(id); setSidebarOpen(false); }}>
-              <Icon size={18} />
-              <span>{label}</span>
+              <Icon size={18} /><span>{label}</span>
             </button>
           ))}
         </nav>
-
-        <HistorySidebar
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          onSelect={(id) => { setActiveConversationId(id); setPage('chat'); setSidebarOpen(false); }}
-          onToggleFavorite={(id) => updateConversation(id, { favorite: !conversations.find((item) => item.id === id)?.favorite })}
-          onTogglePin={(id) => updateConversation(id, { pinned: !conversations.find((item) => item.id === id)?.pinned })}
-        />
-
+        <SidebarHistory conversations={conversations} activeId={activeConversation?.id} onOpen={async (id) => { await loadConversation(id); setPage('chat'); setSidebarOpen(false); }} />
         <div className="sidebar-footer">
-          <button className="theme-toggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-            {theme === 'dark' ? 'Escuro' : 'Claro'}
-          </button>
-          <div className="mini-profile">
-            <Avatar profile={profile} />
-            <div>
-              <strong>{profile.name}</strong>
-              <span>Plano {profile.plan}</span>
-            </div>
-          </div>
+          <button className="theme-toggle" onClick={() => run(async () => {
+            const next = settings.theme === 'dark' ? 'light' : 'dark';
+            const updated = await api.updateSettings({ theme: next });
+            setSettings(updated);
+          })}>{settings.theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />} {settings.theme === 'dark' ? 'Escuro' : 'Claro'}</button>
+          <div className="mini-profile"><Avatar user={user} /><div><strong>{user.name}</strong><span>{user.email}</span></div></div>
         </div>
       </aside>
-
       <main className="workspace">
         <header className="topbar">
-          <button className="icon-button mobile-only" onClick={() => setSidebarOpen(true)} aria-label="Abrir menu">
-            <Menu size={20} />
-          </button>
-          <div>
-            <span className="eyebrow">Plataforma Nexaro</span>
-            <h1>{navigation.find((item) => item.id === page)?.label || 'NEXARO IA'}</h1>
-          </div>
+          <button className="icon-button mobile-only" onClick={() => setSidebarOpen(true)}><Menu size={20} /></button>
+          <div><span className="eyebrow">NEXARO IA</span><h1>{nav.find(([id]) => id === page)?.[1]}</h1></div>
           <div className="topbar-actions">
-            <button className="icon-button" onClick={() => setPage('settings')} aria-label="Configuracoes">
-              <Settings size={18} />
-            </button>
-            <button className="icon-button" aria-label="Notificacoes">
-              <Bell size={18} />
-              {settings.notifications && <span className="notification-dot" />}
-            </button>
-            <Avatar profile={profile} />
+            <button className="icon-button" onClick={() => setPage('settings')}><Settings size={18} /></button>
+            <button className="icon-button" onClick={() => settings.notifications && setNotice('Nao ha novas notificacoes.')}><Bell size={18} /></button>
+            <button className="icon-button" onClick={logout}><LogOut size={18} /></button>
+            <Avatar user={user} />
           </div>
         </header>
-
+        {(error || notice) && <Toast type={error ? 'error' : 'success'} text={error || notice} onClose={() => { setError(''); setNotice(''); }} />}
         <div className="page-scroll">
-          {page === 'dashboard' && (
-            <DashboardPage
-              conversations={conversations}
-              savedItems={savedItems}
-              totalPrompts={totalPrompts}
-              onNavigate={setPage}
-              onNewChat={createConversation}
-            />
-          )}
-          {page === 'chat' && (
-            <ChatWorkspace
-              chat={chat}
-              activeConversation={activeConversation}
-              onSave={saveCurrentAssistantMessage}
-              onExport={exportConversations}
-            />
-          )}
-          {page === 'history' && (
-            <HistoryPage
-              conversations={conversations}
-              search={historySearch}
-              filter={historyFilter}
-              onSearch={setHistorySearch}
-              onFilter={setHistoryFilter}
-              onRename={(id, title) => updateConversation(id, { title })}
-              onDelete={deleteConversation}
-              onDuplicate={duplicateConversation}
-              onToggleFavorite={(id) => updateConversation(id, { favorite: !conversations.find((item) => item.id === id)?.favorite })}
-              onTogglePin={(id) => updateConversation(id, { pinned: !conversations.find((item) => item.id === id)?.pinned })}
-              onOpen={(id) => { setActiveConversationId(id); setPage('chat'); }}
-            />
-          )}
-          {page === 'saved' && <SavedPage savedItems={savedItems} setSavedItems={setSavedItems} />}
-          {page === 'settings' && (
-            <SettingsPage
-              theme={theme}
-              setTheme={setTheme}
-              settings={settings}
-              setSettings={setSettings}
-              profile={profile}
-              setProfile={setProfile}
-              onClear={() => { setConversations([]); chat.clearChat(); }}
-              onExport={exportConversations}
-              onImport={importConversations}
-            />
-          )}
-          {page === 'profile' && <ProfilePage profile={profile} conversations={conversations} totalPrompts={totalPrompts} />}
-          {page === 'security' && <SecurityPage />}
+          {page === 'dashboard' && <DashboardPage dashboard={dashboard} user={user} savedCount={savedItems.length} onNew={createConversation} />}
+          {page === 'chat' && <ChatPage conversation={activeConversation} onSend={sendMessage} onUpload={async (file) => {
+            const conversation = activeConversation || await createConversation();
+            const id = conversation?.id;
+            if (id) await run(() => api.uploadPDF(id, file), 'PDF anexado com sucesso.');
+            if (id) await loadConversation(id);
+          }} onSave={async (message) => {
+            await run(() => api.createSaved({ title: message.content.slice(0, 80), category: 'Geral', content: message.content, message_id: message.id }), 'Mensagem salva.');
+            await loadSaved();
+          }} />}
+          {page === 'history' && <HistoryPage conversations={conversations} query={historyQuery} group={historyGroup} setQuery={setHistoryQuery} setGroup={setHistoryGroup} refresh={async () => loadConversations({ q: historyQuery, date_group: historyGroup })} onOpen={async (id) => { await loadConversation(id); setPage('chat'); }} onUpdate={async (id, patch) => { await run(() => api.updateConversation(id, patch)); await loadConversations(); }} onDelete={async (id) => { await run(() => api.deleteConversation(id), 'Conversa excluida.'); if (activeConversation?.id === id) setActiveConversation(null); await loadConversations(); }} onDuplicate={async (id) => { await run(() => api.duplicateConversation(id), 'Conversa duplicada.'); await loadConversations(); }} />}
+          {page === 'saved' && <SavedPage items={savedItems} reload={loadSaved} onDelete={async (id) => { await run(() => api.deleteSaved(id), 'Item removido.'); await loadSaved(); }} />}
+          {page === 'settings' && <SettingsPage settings={settings} user={user} setUser={setUser} setSettings={setSettings} run={run} reload={bootstrap} logout={logout} />}
+          {page === 'profile' && <ProfilePage user={user} dashboard={dashboard} />}
+          {page === 'security' && <SecurityPage sessions={sessions} reload={loadSessions} />}
           {page === 'terms' && <TermsPage />}
         </div>
       </main>
@@ -391,485 +260,169 @@ function App() {
   );
 }
 
-function Avatar({ profile }) {
-  return (
-    <div className="avatar">
-      {profile.photo ? <img src={profile.photo} alt={profile.name} /> : <span>{profile.name.slice(0, 1).toUpperCase()}</span>}
-    </div>
-  );
-}
+function AuthScreen({ mode, setMode, onSubmit, error, setError }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const isReset = mode === 'reset';
 
-function HistorySidebar({ conversations, activeConversationId, onSelect, onToggleFavorite, onTogglePin }) {
-  const grouped = useMemo(() => {
-    return conversations
-      .slice()
-      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || new Date(b.date) - new Date(a.date))
-      .reduce((acc, item) => {
-        const group = groupConversation(item.date);
-        acc[group] = acc[group] || [];
-        acc[group].push(item);
-        return acc;
-      }, {});
-  }, [conversations]);
-
-  return (
-    <div className="history-sidebar">
-      {['Hoje', 'Ontem', 'Ultimos 7 dias', 'Ultimos 30 dias'].map((group) => (
-        grouped[group]?.length ? (
-          <div className="history-group" key={group}>
-            <span><Archive size={13} /> {group}</span>
-            {grouped[group].map((item) => (
-              <div className={`conversation-row ${item.id === activeConversationId ? 'active' : ''}`} key={item.id}>
-                <button onClick={() => onSelect(item.id)}>
-                  <MessageSquare size={14} />
-                  <span>{item.title}</span>
-                </button>
-                <div className="row-actions">
-                  <button onClick={() => onTogglePin(item.id)} title="Fixar">{item.pinned ? <Check size={13} /> : <ChevronDown size={13} />}</button>
-                  <button onClick={() => onToggleFavorite(item.id)} title="Favoritar"><Star size={13} fill={item.favorite ? 'currentColor' : 'none'} /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null
-      ))}
-    </div>
-  );
-}
-
-function DashboardPage({ conversations, savedItems, totalPrompts, onNavigate, onNewChat }) {
-  const cards = [
-    { icon: MessageSquare, title: 'Chat inteligente', text: 'Converse com a Nexaro IA em um ambiente seguro e organizado.', action: 'Abrir chat', page: 'chat' },
-    { icon: History, title: 'Historico completo', text: 'Pesquise, fixe, duplique e organize conversas por periodo.', action: 'Ver historico', page: 'history' },
-    { icon: Star, title: 'Mensagens salvas', text: 'Guarde prompts, respostas e colecoes por categoria.', action: 'Ver favoritos', page: 'saved' },
-    { icon: Shield, title: 'Centro de seguranca', text: 'Controle 2FA, sessoes, dispositivos e alertas de login.', action: 'Gerenciar', page: 'security' },
-  ];
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    if (isReset) {
+      if (!resetToken) {
+        const data = await api.forgotPassword(resetEmail);
+        setResetToken(data.reset_token || '');
+        setError(data.reset_token ? 'Token gerado para ambiente local. Defina a nova senha.' : 'Se o e-mail existir, enviaremos instrucoes.');
+      } else {
+        await api.resetPassword({ token: resetToken, password: newPassword });
+        setMode('login');
+      }
+      return;
+    }
+    await onSubmit(form);
+  }
 
   return (
-    <div className="dashboard">
-      <section className="hero-panel glass">
-        <div>
-          <Pill>Workspace premium</Pill>
-          <h2>NEXARO IA para criar, estudar, automatizar e decidir com seguranca.</h2>
-          <p>Uma plataforma profissional de IA com historico, favoritos, perfil, termos, seguranca e personalizacao de tema.</p>
-          <div className="hero-actions">
-            <button className="primary-button" onClick={onNewChat}><Plus size={18} /> Nova conversa</button>
-            <button className="secondary-button" onClick={() => onNavigate('settings')}><Settings size={18} /> Configurar</button>
-          </div>
-        </div>
-        <div className="hero-status">
-          <div><span>Status</span><strong>Operacional</strong></div>
-          <div><span>Modelo</span><strong>Nexaro Core</strong></div>
-          <div><span>Privacidade</span><strong>Protegida</strong></div>
-        </div>
-      </section>
-
-      <div className="metrics-grid">
-        <Metric icon={MessageSquare} label="Conversas" value={conversations.length} />
-        <Metric icon={Sparkles} label="Prompts enviados" value={totalPrompts} />
-        <Metric icon={Star} label="Itens salvos" value={savedItems.length} />
-        <Metric icon={ClockIcon} label="Tempo de uso" value="18h" />
-      </div>
-
-      <section className="feature-grid">
-        {cards.map(({ icon: Icon, title, text, action, page }) => (
-          <button className="feature-card glass" key={title} onClick={() => onNavigate(page)}>
-            <Icon size={22} />
-            <strong>{title}</strong>
-            <span>{text}</span>
-            <em>{action}</em>
-          </button>
-        ))}
-      </section>
-    </div>
-  );
-}
-
-function ClockIcon(props) {
-  return <Calendar {...props} />;
-}
-
-function ChatWorkspace({ chat, activeConversation, onSave, onExport }) {
-  const [text, setText] = useState('');
-  const fileRef = useRef(null);
-  const bottomRef = useRef(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat.messages]);
-
-  const send = () => {
-    if (!text.trim()) return;
-    chat.sendMessage(text);
-    setText('');
-  };
-
-  return (
-    <div className="chat-layout">
-      <section className="chat-main glass">
-        <div className="chat-header">
-          <div>
-            <h2>{activeConversation?.title || 'Nova conversa'}</h2>
-            <p>Converse com a Nexaro IA, envie PDFs e salve respostas importantes.</p>
-          </div>
-          <div className="inline-actions">
-            <button className="small-button" onClick={onSave}><Star size={15} /> Salvar</button>
-            <button className="small-button" onClick={onExport}><Download size={15} /> Exportar</button>
-          </div>
-        </div>
-
-        <div className="message-list">
-          {!chat.messages.length && (
-            <EmptyState icon={Sparkles} title="Comece uma conversa" text="Pergunte sobre negocios, estudos, automacoes, codigo ou envie um PDF." />
-          )}
-          {chat.messages.map((msg) => (
-            <div className={`message ${msg.role}`} key={msg.id}>
-              <div className="message-avatar">{msg.role === 'user' ? 'U' : 'N'}</div>
-              <div className="message-bubble">
-                <span>{msg.role === 'user' ? 'Voce' : 'Nexaro'}</span>
-                {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown> : <div className="typing">Nexaro esta pensando...</div>}
-              </div>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
-
-        {chat.pdfInfo && (
-          <div className="pdf-strip">
-            <FileText size={16} />
-            <span>{chat.pdfInfo.filename} - {chat.pdfInfo.pages} paginas</span>
-            <button onClick={chat.clearChat}><X size={14} /></button>
-          </div>
+    <main className="auth-page">
+      <form className="auth-card glass" onSubmit={submit}>
+        <div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20} /></div><div><strong>NEXARO IA</strong><span>Acesso seguro</span></div></div>
+        <h1>{mode === 'register' ? 'Criar conta' : isReset ? 'Recuperar senha' : 'Entrar'}</h1>
+        {mode === 'register' && <label>Nome<input required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>}
+        {isReset ? (
+          <>
+            <label>E-mail<input required type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} /></label>
+            {resetToken && <label>Nova senha<input required minLength={8} type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></label>}
+          </>
+        ) : (
+          <>
+            <label>E-mail<input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+            <label>Senha<div className="password-field"><input required minLength={mode === 'register' ? 8 : 1} type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>
+          </>
         )}
-
-        <div className="composer">
-          <button onClick={() => fileRef.current?.click()} className="icon-button"><Paperclip size={18} /></button>
-          <input ref={fileRef} type="file" accept=".pdf" hidden onChange={(event) => chat.handlePDFUpload(event.target.files?.[0])} />
-          <textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                send();
-              }
-            }}
-            placeholder="Pergunte qualquer coisa para a Nexaro..."
-          />
-          <button className={`icon-button ${chat.isListening ? 'danger' : ''}`} onClick={chat.isListening ? chat.stopListening : chat.startListening}>
-            <Mic size={18} />
-          </button>
-          <button className="primary-button compact" onClick={send} disabled={chat.isLoading || !text.trim()}>
-            Enviar
-          </button>
+        {error && <p className="auth-error">{error}</p>}
+        <button className="primary-button">{isReset && !resetToken ? 'Enviar instrucao' : isReset ? 'Alterar senha' : mode === 'register' ? 'Cadastrar' : 'Entrar'}</button>
+        <div className="auth-links">
+          <button type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')}>{mode === 'register' ? 'Ja tenho conta' : 'Criar conta'}</button>
+          <button type="button" onClick={() => setMode('reset')}>Recuperar senha</button>
         </div>
+      </form>
+    </main>
+  );
+}
+
+function DashboardPage({ dashboard, user, savedCount, onNew }) {
+  const stats = dashboard?.user?.stats || user?.stats || {};
+  return (
+    <section className="dashboard">
+      <div className="hero-panel glass">
+        <div><span className="pill">Produto operacional</span><h2>Ambiente real da NEXARO IA</h2><p>Seus dados, historico, configuracoes e mensagens salvas sao carregados do backend autenticado.</p><div className="hero-actions"><button className="primary-button" onClick={onNew}><Plus size={18} /> Nova conversa</button></div></div>
+        <div className="hero-status"><div><span>Ultimo acesso</span><strong>{formatDate(user.last_access_at)}</strong></div><div><span>Sessoes ativas</span><strong>{dashboard?.active_sessions ?? 0}</strong></div><div><span>Itens salvos</span><strong>{savedCount}</strong></div></div>
+      </div>
+      <div className="metrics-grid"><Metric icon={MessageSquare} label="Conversas" value={stats.total_conversations ?? 0} /><Metric icon={FileText} label="Mensagens" value={stats.total_messages ?? 0} /><Metric icon={Sparkles} label="Prompts" value={stats.total_prompts ?? 0} /><Metric icon={Star} label="Salvos" value={savedCount} /></div>
+    </section>
+  );
+}
+
+function ChatPage({ conversation, onSend, onUpload, onSave }) {
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const fileRef = useRef(null);
+  const messages = conversation?.messages || [];
+  async function submit() {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    await onSend(text).finally(() => setSending(false));
+    setText('');
+  }
+  function startVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'pt-BR';
+    recognition.onresult = (event) => setText(event.results[0][0].transcript);
+    recognition.start();
+  }
+  return (
+    <div className="chat-layout single">
+      <section className="chat-main glass">
+        <div className="chat-header"><div><h2>{conversation?.title || 'Conversa'}</h2><p>{conversation ? 'Historico real carregado do banco de dados.' : 'Crie uma conversa para iniciar.'}</p></div></div>
+        <div className="message-list">
+          {!messages.length && <EmptyState icon={MessageSquare} title="Nenhuma mensagem" text="Envie a primeira mensagem para criar historico real." />}
+          {messages.map((msg) => <div className={`message ${msg.role}`} key={msg.id}><div className="message-avatar">{msg.role === 'user' ? 'U' : 'N'}</div><div className="message-bubble"><span>{msg.role === 'user' ? 'Voce' : 'Nexaro'}</span><ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>{msg.role === 'assistant' && msg.id && !msg.id.startsWith?.('temp') && <button className="small-button" onClick={() => onSave(msg)}><Star size={14} /> Salvar</button>}</div></div>)}
+        </div>
+        {conversation?.pdf_filename && <div className="pdf-strip"><FileText size={16} /><span>{conversation.pdf_filename} - {conversation.pdf_pages} paginas</span></div>}
+        <div className="composer"><button className="icon-button" onClick={() => fileRef.current?.click()}><Paperclip size={18} /></button><input hidden ref={fileRef} type="file" accept=".pdf" onChange={(e) => onUpload(e.target.files?.[0])} /><textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} aria-label="Mensagem" /><button className="icon-button" onClick={startVoice}><Mic size={18} /></button><button disabled={sending || !text.trim()} className="primary-button compact" onClick={submit}>{sending ? 'Enviando' : 'Enviar'}</button></div>
       </section>
-
-      <aside className="context-panel glass">
-        <h3>Contexto seguro</h3>
-        <div className="security-list">
-          <span><ShieldCheck size={16} /> Criptografia em transito</span>
-          <span><Lock size={16} /> Dados privados por padrao</span>
-          <span><Database size={16} /> Historico organizado localmente</span>
-        </div>
-        <h3>Prompts rapidos</h3>
-        {['Crie um plano de estudos', 'Resuma este conteudo', 'Analise este codigo', 'Monte uma estrategia de vendas'].map((prompt) => (
-          <button className="prompt-chip" key={prompt} onClick={() => setText(prompt)}>{prompt}</button>
-        ))}
-      </aside>
     </div>
   );
 }
 
-function HistoryPage({ conversations, search, filter, onSearch, onFilter, onRename, onDelete, onDuplicate, onToggleFavorite, onTogglePin, onOpen }) {
-  const filtered = conversations.filter((item) => {
-    const matchesSearch = item.title.toLowerCase().includes(search.toLowerCase()) || item.messages.some((msg) => msg.content.toLowerCase().includes(search.toLowerCase()));
-    const matchesFilter = filter === 'all' || groupConversation(item.date) === filter;
-    return matchesSearch && matchesFilter;
-  });
-
-  return (
-    <section className="stack-page">
-      <SectionHeader
-        title="Historico de conversas"
-        subtitle="Pesquise, filtre, renomeie, fixe, favorite, duplique ou exclua conversas."
-        action={<Pill>{filtered.length} conversas</Pill>}
-      />
-      <div className="toolbar glass">
-        <label className="search-field">
-          <Search size={17} />
-          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Pesquisar por palavra-chave" />
-        </label>
-        <label className="select-field">
-          <Filter size={16} />
-          <select value={filter} onChange={(event) => onFilter(event.target.value)}>
-            <option value="all">Todos os periodos</option>
-            <option value="Hoje">Hoje</option>
-            <option value="Ontem">Ontem</option>
-            <option value="Ultimos 7 dias">Ultimos 7 dias</option>
-            <option value="Ultimos 30 dias">Ultimos 30 dias</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="data-list">
-        {filtered.map((item) => (
-          <article className="data-row glass" key={item.id}>
-            <button className="row-main" onClick={() => onOpen(item.id)}>
-              <MessageSquare size={18} />
-              <div>
-                <input value={item.title} onClick={(event) => event.stopPropagation()} onChange={(event) => onRename(item.id, event.target.value)} />
-                <span>{groupConversation(item.date)} - {item.messages.length} mensagens</span>
-              </div>
-            </button>
-            <div className="row-menu">
-              <button onClick={() => onTogglePin(item.id)} title="Fixar"><Archive size={16} fill={item.pinned ? 'currentColor' : 'none'} /></button>
-              <button onClick={() => onToggleFavorite(item.id)} title="Favoritar"><Star size={16} fill={item.favorite ? 'currentColor' : 'none'} /></button>
-              <button onClick={() => onDuplicate(item.id)} title="Duplicar"><Copy size={16} /></button>
-              <button onClick={() => onDelete(item.id)} title="Excluir"><Trash2 size={16} /></button>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
+function HistoryPage({ conversations, query, group, setQuery, setGroup, refresh, onOpen, onUpdate, onDelete, onDuplicate }) {
+  useEffect(() => { refresh().catch(() => {}); }, [query, group]);
+  return <section className="stack-page"><SectionHeader title="Historico real" subtitle="Dados carregados do banco de dados do usuario autenticado." /><div className="toolbar glass"><label className="search-field"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pesquisar conversas" /></label><label className="select-field"><Filter size={16} /><select value={group} onChange={(e) => setGroup(e.target.value)}><option value="">Todos</option><option>Hoje</option><option>Ontem</option><option>Ultimos 7 dias</option><option>Ultimos 30 dias</option></select></label></div><div className="data-list">{!conversations.length && <EmptyState icon={History} title="Sem conversas" text="O historico sera preenchido automaticamente ao usar o chat." />}{conversations.map((item) => <article className="data-row glass" key={item.id}><button className="row-main" onClick={() => onOpen(item.id)}><MessageSquare size={18} /><div><input value={item.title} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(item.id, { title: e.target.value })} /><span>{formatDate(item.updated_at)} - {item.message_count} mensagens</span></div></button><div className="row-menu"><button onClick={() => onUpdate(item.id, { pinned: !item.pinned })}><Archive size={16} fill={item.pinned ? 'currentColor' : 'none'} /></button><button onClick={() => onUpdate(item.id, { favorite: !item.favorite })}><Star size={16} fill={item.favorite ? 'currentColor' : 'none'} /></button><button onClick={() => onDuplicate(item.id)}><Copy size={16} /></button><button onClick={() => onDelete(item.id)}><Trash2 size={16} /></button></div></article>)}</div></section>;
 }
 
-function SavedPage({ savedItems, setSavedItems }) {
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('Todos');
-  const categories = ['Todos', 'Prompts', 'Automacoes', 'Programacao', 'Negocios', 'Estudos'];
-  const filtered = savedItems.filter((item) => {
-    const text = `${item.title} ${item.content} ${item.category}`.toLowerCase();
-    return text.includes(query.toLowerCase()) && (category === 'Todos' || item.category === category);
-  });
-
-  return (
-    <section className="stack-page">
-      <SectionHeader title="Mensagens salvas" subtitle="Prompts, respostas e colecoes importantes sempre a mao." />
-      <div className="toolbar glass">
-        <label className="search-field">
-          <Search size={17} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Pesquisar favoritos" />
-        </label>
-        <button className="primary-button" onClick={() => setSavedItems((items) => [{ id: `save-${Date.now()}`, type: 'Prompt', category: 'Prompts', title: 'Novo prompt', content: 'Escreva seu prompt favorito aqui.' }, ...items])}>
-          <Plus size={17} /> Nova colecao
-        </button>
-      </div>
-      <div className="category-tabs">
-        {categories.map((item) => (
-          <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)}>{item}</button>
-        ))}
-      </div>
-      <div className="saved-grid">
-        {filtered.map((item) => (
-          <article className="saved-card glass" key={item.id}>
-            <div>
-              <Pill>{item.category}</Pill>
-              <h3>{item.title}</h3>
-              <p>{item.content}</p>
-            </div>
-            <div className="inline-actions">
-              <button className="small-button"><Copy size={14} /> Copiar</button>
-              <button className="small-button" onClick={() => setSavedItems((items) => items.filter((saved) => saved.id !== item.id))}><Trash2 size={14} /> Excluir</button>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
+function SavedPage({ items, reload, onDelete }) {
+  const [q, setQ] = useState('');
+  const [category, setCategory] = useState('');
+  useEffect(() => { reload({ q, category }).catch(() => {}); }, [q, category]);
+  const categories = useMemo(() => [...new Set(items.map((item) => item.category))], [items]);
+  return <section className="stack-page"><SectionHeader title="Mensagens salvas" subtitle="Somente mensagens salvas por voce aparecem aqui." /><div className="toolbar glass"><label className="search-field"><Search size={17} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Pesquisar salvos" /></label><label className="select-field"><Filter size={16} /><select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">Todas</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label></div><div className="saved-grid">{!items.length && <EmptyState icon={Star} title="Nada salvo" text="Salve respostas reais do chat para criar sua biblioteca." />}{items.map((item) => <article className="saved-card glass" key={item.id}><div><span className="pill">{item.category}</span><h3>{item.title}</h3><p>{item.content}</p></div><button className="small-button" onClick={() => onDelete(item.id)}><Trash2 size={14} /> Remover</button></article>)}</div></section>;
 }
 
-function SettingsPage({ theme, setTheme, settings, setSettings, profile, setProfile, onClear, onExport, onImport }) {
-  const fileRef = useRef(null);
+function SettingsPage({ settings, user, setUser, setSettings, run, reload, logout }) {
+  const [profile, setProfile] = useState({ name: user.name, avatar_url: user.avatar_url || '' });
+  const [passwords, setPasswords] = useState({ current_password: '', new_password: '' });
   const importRef = useRef(null);
-
-  const handlePhoto = (file) => {
+  async function importFile(file) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setProfile({ ...profile, photo: reader.result });
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <section className="settings-grid">
-      <SettingsPanel title="Aparencia" icon={Sparkles}>
-        <div className="segmented">
-          <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><Moon size={16} /> Escuro</button>
-          <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><Sun size={16} /> Claro</button>
-        </div>
-        <p className="muted">Alternancia instantanea entre fundo azul escuro tecnologico e tema claro profissional.</p>
-      </SettingsPanel>
-
-      <SettingsPanel title="Preferencias" icon={Globe2}>
-        <label className="form-row">
-          <span>Idioma</span>
-          <select value={settings.language} onChange={(event) => setSettings({ ...settings, language: event.target.value })}>
-            <option value="pt-BR">Portugues</option>
-            <option value="en-US">English</option>
-            <option value="es-ES">Espanol</option>
-          </select>
-        </label>
-        <Toggle label="Notificacoes" checked={settings.notifications} onChange={(checked) => setSettings({ ...settings, notifications: checked })} />
-        <Toggle label="Alertas de seguranca" checked={settings.securityAlerts} onChange={(checked) => setSettings({ ...settings, securityAlerts: checked })} />
-        <Toggle label="Novidades do produto" checked={settings.productUpdates} onChange={(checked) => setSettings({ ...settings, productUpdates: checked })} />
-      </SettingsPanel>
-
-      <SettingsPanel title="Conta" icon={User}>
-        <label className="form-row">
-          <span>Nome de exibicao</span>
-          <input value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} />
-        </label>
-        <label className="form-row">
-          <span>E-mail</span>
-          <input value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} />
-        </label>
-        <input ref={fileRef} hidden type="file" accept="image/*" onChange={(event) => handlePhoto(event.target.files?.[0])} />
-        <button className="secondary-button" onClick={() => fileRef.current?.click()}><Image size={17} /> Alterar foto</button>
-        <button className="secondary-button"><User size={17} /> Gerenciar conta</button>
-        <button className="danger-button"><Trash2 size={17} /> Excluir conta</button>
-      </SettingsPanel>
-
-      <SettingsPanel title="Dados" icon={Database}>
-        <button className="secondary-button" onClick={onClear}><Trash2 size={17} /> Limpar historico</button>
-        <button className="secondary-button" onClick={onExport}><Download size={17} /> Exportar conversas</button>
-        <input ref={importRef} hidden type="file" accept="application/json" onChange={(event) => onImport(event.target.files?.[0])} />
-        <button className="secondary-button" onClick={() => importRef.current?.click()}><Upload size={17} /> Importar conversas</button>
-      </SettingsPanel>
-    </section>
-  );
+    const data = JSON.parse(await file.text());
+    await api.importConversations(Array.isArray(data) ? data : []);
+    await reload();
+  }
+  async function updateSettings(patch) {
+    const updated = await api.updateSettings(patch);
+    setSettings(updated);
+  }
+  return <section className="settings-grid"><Panel title="Aparencia" icon={Settings}><div className="segmented"><button className={settings.theme === 'dark' ? 'active' : ''} onClick={() => run(() => updateSettings({ theme: 'dark' }))}><Moon size={16} /> Escuro</button><button className={settings.theme === 'light' ? 'active' : ''} onClick={() => run(() => updateSettings({ theme: 'light' }))}><Sun size={16} /> Claro</button></div><label className="form-row"><span>Idioma</span><select value={settings.language} onChange={(e) => run(() => updateSettings({ language: e.target.value }))}><option value="pt-BR">Portugues</option><option value="en-US">English</option><option value="es-ES">Espanol</option></select></label><Toggle label="Notificacoes" checked={settings.notifications} onChange={(v) => run(() => updateSettings({ notifications: v }))} /></Panel><Panel title="Conta" icon={User}><label className="form-row"><span>Nome</span><input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></label><label className="form-row"><span>Foto URL/base64</span><input value={profile.avatar_url} onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })} /></label><button className="secondary-button" onClick={() => run(async () => { const updated = await api.updateMe(profile); setUser(updated); }, 'Perfil atualizado.')}><Image size={17} /> Salvar perfil</button></Panel><Panel title="Senha" icon={KeyRound}><input aria-label="Senha atual" type="password" value={passwords.current_password} onChange={(e) => setPasswords({ ...passwords, current_password: e.target.value })} /><input aria-label="Nova senha" type="password" value={passwords.new_password} onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })} /><button className="secondary-button" onClick={() => run(() => api.changePassword(passwords), 'Senha alterada.')}><Lock size={17} /> Alterar senha</button></Panel><Panel title="Dados" icon={Download}><button className="secondary-button" onClick={() => run(async () => { const data = await api.exportConversations(); downloadJson('nexaro-conversas.json', data); })}><Download size={17} /> Exportar conversas</button><input hidden ref={importRef} type="file" accept="application/json" onChange={(e) => run(() => importFile(e.target.files?.[0]), 'Conversas importadas.')} /><button className="secondary-button" onClick={() => importRef.current?.click()}><Upload size={17} /> Selecionar arquivo</button><button className="danger-button" onClick={() => run(async () => { await api.deleteAccount(); await logout(); }, 'Conta excluida.')}><Trash2 size={17} /> Excluir conta</button></Panel></section>;
 }
 
-function SettingsPanel({ title, icon: Icon, children }) {
-  return (
-    <article className="settings-panel glass">
-      <h3><Icon size={18} /> {title}</h3>
-      {children}
-    </article>
-  );
+function ProfilePage({ user, dashboard }) {
+  const stats = dashboard?.user?.stats || user.stats || {};
+  return <section className="profile-page"><div className="profile-hero glass"><Avatar user={user} /><div><span className="pill">Plano {user.plan}</span><h2>{user.name}</h2><p>{user.email}</p></div></div><div className="metrics-grid"><Metric icon={Calendar} label="Cadastro" value={formatDate(user.created_at)} /><Metric icon={MessageSquare} label="Conversas" value={stats.total_conversations ?? 0} /><Metric icon={FileText} label="Mensagens" value={stats.total_messages ?? 0} /><Metric icon={Sparkles} label="Prompts" value={stats.total_prompts ?? 0} /></div></section>;
 }
 
-function Toggle({ label, checked, onChange }) {
-  return (
-    <label className="toggle-row">
-      <span>{label}</span>
-      <button className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)} type="button">
-        <span />
-      </button>
-    </label>
-  );
-}
-
-function ProfilePage({ profile, conversations, totalPrompts }) {
-  return (
-    <section className="profile-page">
-      <div className="profile-hero glass">
-        <Avatar profile={profile} />
-        <div>
-          <Pill>Plano {profile.plan}</Pill>
-          <h2>{profile.name}</h2>
-          <p>{profile.email}</p>
-        </div>
-      </div>
-      <div className="metrics-grid">
-        <Metric icon={Calendar} label="Cadastro" value={profile.createdAt} />
-        <Metric icon={MessageSquare} label="Conversas" value={conversations.length} />
-        <Metric icon={Sparkles} label="Prompts enviados" value={totalPrompts} />
-        <Metric icon={ClockIcon} label="Tempo de uso" value="18h" />
-      </div>
-      <div className="profile-details glass">
-        <h3>Resumo da conta</h3>
-        <p>Perfil profissional com personalizacao, plano atual, uso da plataforma e controle de dados.</p>
-      </div>
-    </section>
-  );
-}
-
-function SecurityPage() {
-  const sessions = [
-    { device: 'Windows - Chrome', location: 'Sao Paulo, BR', status: 'Atual' },
-    { device: 'Android - Chrome', location: 'Sao Paulo, BR', status: 'Ativa' },
-    { device: 'MacBook - Safari', location: 'Rio de Janeiro, BR', status: 'Encerrada' },
-  ];
-  const logins = [
-    'Login aprovado com 2FA',
-    'Senha alterada',
-    'Novo dispositivo conectado',
-    'Exportacao de conversas realizada',
-  ];
-
-  return (
-    <section className="stack-page">
-      <SectionHeader title="Seguranca" subtitle="Login seguro, recuperacao de senha, 2FA, sessoes e dispositivos conectados." />
-      <div className="security-grid">
-        {[
-          { icon: Lock, title: 'Login seguro', text: 'Protecao por senha forte e validacao de sessao.' },
-          { icon: KeyRound, title: 'Recuperacao de senha', text: 'Fluxo de redefinicao protegido por e-mail.' },
-          { icon: Fingerprint, title: 'Autenticacao 2FA', text: 'Codigo temporario para proteger acessos sensiveis.' },
-          { icon: Database, title: 'Criptografia de dados', text: 'Dados protegidos em transito e preparados para criptografia em repouso.' },
-        ].map(({ icon: Icon, title, text }) => (
-          <article className="security-card glass" key={title}>
-            <Icon size={22} />
-            <strong>{title}</strong>
-            <p>{text}</p>
-            <Toggle label="Ativo" checked onChange={() => {}} />
-          </article>
-        ))}
-      </div>
-      <div className="two-column">
-        <article className="glass panel-list">
-          <h3><Laptop size={18} /> Sessoes ativas</h3>
-          {sessions.map((session) => (
-            <div className="panel-row" key={`${session.device}-${session.status}`}>
-              <div>
-                <strong>{session.device}</strong>
-                <span>{session.location}</span>
-              </div>
-              <Pill tone={session.status === 'Atual' ? 'green' : 'blue'}>{session.status}</Pill>
-            </div>
-          ))}
-        </article>
-        <article className="glass panel-list">
-          <h3><History size={18} /> Historico de login</h3>
-          {logins.map((item) => (
-            <div className="panel-row" key={item}>
-              <span>{item}</span>
-              <small>Agora</small>
-            </div>
-          ))}
-        </article>
-      </div>
-    </section>
-  );
+function SecurityPage({ sessions }) {
+  return <section className="stack-page"><SectionHeader title="Seguranca" subtitle="Sessoes persistentes reais registradas no backend." /><div className="two-column"><article className="glass panel-list"><h3><Laptop size={18} /> Sessoes</h3>{!sessions.length && <EmptyState icon={Laptop} title="Sem sessoes" text="As sessoes aparecem apos login." />}{sessions.map((s) => <div className="panel-row" key={s.id}><div><strong>{s.user_agent || 'Dispositivo nao identificado'}</strong><span>{s.ip_address || 'IP indisponivel'}</span></div><span className="pill">{s.is_active ? 'Ativa' : 'Encerrada'}</span></div>)}</article><article className="glass panel-list"><h3><ShieldCheck size={18} /> Protecoes</h3><div className="panel-row"><span>Senhas com hash PBKDF2</span><Check size={18} /></div><div className="panel-row"><span>Tokens persistidos com hash</span><Check size={18} /></div><div className="panel-row"><span>Rotas protegidas por Bearer token</span><Check size={18} /></div></article></div></section>;
 }
 
 function TermsPage() {
-  const sections = [
-    ['Politica de Privacidade', 'A NEXARO IA trata informacoes com foco em transparencia, seguranca e controle pelo usuario.'],
-    ['Termos de Uso', 'O uso da plataforma deve respeitar leis, direitos de terceiros e boas praticas profissionais.'],
-    ['Politica de Cookies', 'Cookies podem ser utilizados para sessao, preferencias e melhoria da experiencia.'],
-    ['Seguranca de Dados', 'Aplicamos controles de acesso, monitoramento e boas praticas para reduzir riscos.'],
-    ['Direitos do Usuario', 'O usuario pode solicitar acesso, correcao, exportacao ou exclusao de dados.'],
-    ['Responsabilidades do Usuario', 'O usuario deve proteger credenciais e revisar conteudos gerados antes de uso critico.'],
-    ['Limitacoes da Plataforma', 'Respostas de IA podem conter imprecisoes e nao substituem aconselhamento profissional.'],
-    ['Contato para suporte', 'Entre em contato pelo canal oficial de suporte da Nexaro para duvidas e solicitacoes.'],
-  ];
-
-  return (
-    <section className="terms-page glass">
-      <Pill>Documento profissional</Pill>
-      <h2>Termos, privacidade e seguranca da NEXARO IA</h2>
-      <div className="terms-grid">
-        {sections.map(([title, text]) => (
-          <article key={title}>
-            <h3>{title}</h3>
-            <p>{text}</p>
-          </article>
-        ))}
-      </div>
-      <footer>NEXARO IA respeita a privacidade e a seguranca dos seus usuarios. Nenhum dado e compartilhado sem autorizacao.</footer>
-    </section>
-  );
+  return <section className="terms-page glass"><span className="pill">Documento oficial</span><h2>Termos, privacidade e seguranca</h2><div className="terms-grid">{['Politica de Privacidade', 'Termos de Uso', 'Politica de Cookies', 'Seguranca de Dados', 'Direitos do Usuario', 'Responsabilidades do Usuario', 'Limitacoes da Plataforma', 'Contato para suporte'].map((title) => <article key={title}><h3>{title}</h3><p>Consulte este item nas politicas oficiais da NEXARO IA disponibilizadas ao usuario autenticado.</p></article>)}</div><footer>NEXARO IA respeita a privacidade e a seguranca dos seus usuarios. Nenhum dado e compartilhado sem autorizacao.</footer></section>;
 }
+
+function SidebarHistory({ conversations, activeId, onOpen }) {
+  const grouped = conversations.reduce((acc, conv) => {
+    const group = groupDate(conv.updated_at || conv.created_at);
+    acc[group] = acc[group] || [];
+    acc[group].push(conv);
+    return acc;
+  }, {});
+  return <div className="history-sidebar">{['Hoje', 'Ontem', 'Ultimos 7 dias', 'Ultimos 30 dias'].map((group) => grouped[group]?.length ? <div className="history-group" key={group}><span>{group}</span>{grouped[group].map((conv) => <div className={`conversation-row ${activeId === conv.id ? 'active' : ''}`} key={conv.id}><button onClick={() => onOpen(conv.id)}><MessageSquare size={14} /><span>{conv.title}</span></button></div>)}</div> : null)}</div>;
+}
+
+function Avatar({ user }) { return <div className="avatar">{user.avatar_url ? <img src={user.avatar_url} alt={user.name} /> : <span>{user.name?.slice(0, 1)?.toUpperCase()}</span>}</div>; }
+function Metric({ icon: Icon, label, value }) { return <div className="metric-card"><div className="metric-icon"><Icon size={18} /></div><div><strong>{value}</strong><span>{label}</span></div></div>; }
+function SectionHeader({ title, subtitle }) { return <div className="section-header"><div><h2>{title}</h2><p>{subtitle}</p></div></div>; }
+function EmptyState({ icon: Icon, title, text }) { return <div className="empty-state"><Icon size={26} /><strong>{title}</strong><span>{text}</span></div>; }
+function Panel({ title, icon: Icon, children }) { return <article className="settings-panel glass"><h3><Icon size={18} /> {title}</h3>{children}</article>; }
+function Toggle({ label, checked, onChange }) { return <label className="toggle-row"><span>{label}</span><button type="button" className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)}><span /></button></label>; }
+function Toast({ type, text, onClose }) { return <div className={`toast ${type}`}><span>{text}</span><button onClick={onClose}><X size={16} /></button></div>; }
+function LoadingScreen() { return <div className="auth-page"><div className="empty-state glass"><Sparkles size={28} /><strong>Carregando NEXARO IA</strong><span>Validando sessao segura.</span></div></div>; }
+function formatDate(value) { return value ? new Date(value).toLocaleString('pt-BR') : 'Sem registro'; }
+function groupDate(value) { const date = value ? new Date(value) : new Date(); const today = new Date(); const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()); const compare = new Date(date.getFullYear(), date.getMonth(), date.getDate()); const diff = Math.floor((start - compare) / 86400000); if (diff <= 0) return 'Hoje'; if (diff === 1) return 'Ontem'; if (diff <= 7) return 'Ultimos 7 dias'; return 'Ultimos 30 dias'; }
+function downloadJson(filename, data) { const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url); }
 
 export default App;
