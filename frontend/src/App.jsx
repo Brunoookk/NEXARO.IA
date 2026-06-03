@@ -63,6 +63,7 @@ function App() {
   const [dashboard, setDashboard] = useState(null);
   const [historyQuery, setHistoryQuery] = useState('');
   const [historyGroup, setHistoryGroup] = useState('');
+  const [welcome, setWelcome] = useState(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme || 'dark';
@@ -142,6 +143,8 @@ function App() {
     setToken(data.token);
     setUser(data.user);
     setSettings(data.settings);
+    setWelcome(true);
+    setTimeout(() => setWelcome(false), 2600);
   }
 
   async function logout() {
@@ -237,6 +240,7 @@ function App() {
           </div>
         </header>
         {(error || notice) && <Toast type={error ? 'error' : 'success'} text={error || notice} onClose={() => { setError(''); setNotice(''); }} />}
+        {welcome && <WelcomeOverlay name={user.name} />}
         <div className="page-scroll">
           {page === 'dashboard' && <DashboardPage dashboard={dashboard} user={user} savedCount={savedItems.length} onNew={createConversation} />}
           {page === 'chat' && <ChatPage conversation={activeConversation} onSend={sendMessage} onUpload={async (file) => {
@@ -420,6 +424,7 @@ function EmptyState({ icon: Icon, title, text }) { return <div className="empty-
 function Panel({ title, icon: Icon, children }) { return <article className="settings-panel glass"><h3><Icon size={18} /> {title}</h3>{children}</article>; }
 function Toggle({ label, checked, onChange }) { return <label className="toggle-row"><span>{label}</span><button type="button" className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)}><span /></button></label>; }
 function Toast({ type, text, onClose }) { return <div className={`toast ${type}`}><span>{text}</span><button onClick={onClose}><X size={16} /></button></div>; }
+function WelcomeOverlay({ name }) { return <div className="welcome-overlay"><div className="welcome-card glass"><div className="welcome-orbit"><Sparkles size={28} /></div><span>Bem-vindo</span><strong>{name}</strong><p>Sua plataforma NEXARO IA esta pronta.</p></div></div>; }
 function LoadingScreen() { return <div className="auth-page"><div className="empty-state glass"><Sparkles size={28} /><strong>Carregando NEXARO IA</strong><span>Validando sessao segura.</span></div></div>; }
 function formatDate(value) { return value ? new Date(value).toLocaleString('pt-BR') : 'Sem registro'; }
 function groupDate(value) { const date = value ? new Date(value) : new Date(); const today = new Date(); const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()); const compare = new Date(date.getFullYear(), date.getMonth(), date.getDate()); const diff = Math.floor((start - compare) / 86400000); if (diff <= 0) return 'Hoje'; if (diff === 1) return 'Ontem'; if (diff <= 7) return 'Ultimos 7 dias'; return 'Ultimos 30 dias'; }
