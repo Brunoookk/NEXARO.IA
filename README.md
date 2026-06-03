@@ -1,28 +1,42 @@
-# Trinn.IA — Chatbot
+# NEXARO.IA
 
-Chatbot com IA usando Groq (LLaMA 3), tema dark, memória de conversa, upload de PDF e voz.
+Chatbot com IA usando Groq, memoria de conversa, upload de PDF e voz.
 
 ## Rodar localmente
 
 ### Backend
-```
+
+```bash
 cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
-Abra `backend/main.py` e cole sua chave Groq em `GROQ_API_KEY`.
+
+Configure as variaveis do backend a partir de `backend/.env.example`.
 
 ### Frontend
-```
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
+
 Acesse: http://localhost:5173
 
-## Deploy Railway
+## Deploy Render
 
-1. Suba no GitHub
-2. Crie projeto no Railway com o repo
-3. Backend: Root Directory = `backend`, Start Command = `uvicorn main:app --host 0.0.0.0 --port $PORT`
-4. Adicione variável `GROQ_API_KEY` nas Settings
+Backend:
+
+```txt
+Root Directory: backend
+Start Command: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+Frontend:
+
+```txt
+Root Directory: frontend
+Build Command: npm install && npm run build
+Publish Directory: dist
+```
