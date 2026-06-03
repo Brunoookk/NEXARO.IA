@@ -1,4 +1,4 @@
-const BASE = 'https://trinn-ia-backend.onrender.com';
+const BASE = import.meta.env.VITE_API_BASE_URL || 'https://nexaro-ia.onrender.com';
 
 export async function createSession() {
   const res = await fetch(`${BASE}/session/new`, { method: 'POST' });

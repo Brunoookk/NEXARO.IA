@@ -1,8 +1,9 @@
 fastapi
-uvicorn
+uvicorn[standard]
 groq
 PyPDF2
 python-dotenv
 sqlalchemy
 psycopg2-binary
 python-multipart
+pydantic
