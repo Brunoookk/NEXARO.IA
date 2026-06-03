@@ -21,7 +21,7 @@ export default function PerfilPage({ onNavigate }) {
           🧑
         </div>
         <div>
-          <div style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em' }}>TRINN</div>
+          <div style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em' }}>Nexaro</div>
           <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Plano Free</div>
         </div>
       </div>

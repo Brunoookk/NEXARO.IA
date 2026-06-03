@@ -16,7 +16,7 @@ export default function HomePage({ onNavigate }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <span style={{ fontSize: '26px' }}>👋</span>
           <h1 style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em' }}>
-            Fala, TRINN!
+            Fala, Nexaro!
           </h1>
         </div>
         <p style={{ color: 'var(--text-2)', fontSize: '15px' }}>Como posso te ajudar hoje?</p>

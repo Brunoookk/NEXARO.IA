@@ -59,7 +59,7 @@ function Message({ msg, onSpeak, isSpeaking }) {
         </div>
       )}
       <div style={{ maxWidth: '78%' }}>
-        {!isUser && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em' }}>TRINN.IA</div>}
+        {!isUser && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em' }}>Nexaro</div>}
         <div style={{
           padding: '12px 16px',
           background: isUser ? 'var(--purple)' : 'var(--bg-3)',

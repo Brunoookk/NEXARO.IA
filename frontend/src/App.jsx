@@ -52,7 +52,7 @@ export default function App() {
           <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'linear-gradient(135deg,#8250ff,#a67fff)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(130,80,255,0.3)' }}>
             <Zap size={16} color="#fff" />
           </div>
-          <span style={{ fontWeight: 900, fontSize: '18px', letterSpacing: '-0.03em', background: 'linear-gradient(135deg,#fff,#a67fff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>TRINN.IA</span>
+          <span style={{ fontWeight: 900, fontSize: '18px', letterSpacing: '-0.03em', background: 'linear-gradient(135deg,#fff,#a67fff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Nexaro</span>
         </div>
         {navItems.filter(n => n.id !== 'mic').map(({ id, icon: Icon, label }) => (
           <button key={id} onClick={() => setPage(id)}
@@ -88,7 +88,7 @@ export default function App() {
             {title ? (
               <span style={{ fontWeight: 700, fontSize: '16px' }}>{title}</span>
             ) : (
-              <span style={{ fontWeight: 900, fontSize: '18px', letterSpacing: '-0.02em', background: 'linear-gradient(135deg,#fff,#a67fff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>TRINN.IA</span>
+              <span style={{ fontWeight: 900, fontSize: '18px', letterSpacing: '-0.02em', background: 'linear-gradient(135deg,#fff,#a67fff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Nexaro</span>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
