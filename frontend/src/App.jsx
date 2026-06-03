@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import nexaroLogo from './assets/nexaro-logo.svg';
 import { api, getAuthToken, setAuthToken, streamChat } from './utils/api';
 
 const emptySettings = {
@@ -206,7 +207,7 @@ function App() {
     <div className="app-shell">
       <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="brand">
-          <div className="brand-mark"><Sparkles size={20} /></div>
+          <div className="brand-mark"><img src={nexaroLogo} alt="NEXARO IA" /></div>
           <div><strong>NEXARO IA</strong><span>Workspace seguro</span></div>
           <button className="icon-button mobile-only" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
         </div>
@@ -292,7 +293,7 @@ function AuthScreen({ mode, setMode, onSubmit, error, setError }) {
   return (
     <main className="auth-page">
       <form className="auth-card glass" onSubmit={submit}>
-        <div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20} /></div><div><strong>NEXARO IA</strong><span>Acesso seguro</span></div></div>
+        <div className="brand auth-brand"><div className="brand-mark"><img src={nexaroLogo} alt="NEXARO IA" /></div><div><strong>NEXARO IA</strong><span>Acesso seguro</span></div></div>
         <h1>{mode === 'register' ? 'Criar conta' : isReset ? 'Recuperar senha' : 'Entrar'}</h1>
         {mode === 'register' && <label>Nome<input required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>}
         {isReset ? (
@@ -424,7 +425,7 @@ function EmptyState({ icon: Icon, title, text }) { return <div className="empty-
 function Panel({ title, icon: Icon, children }) { return <article className="settings-panel glass"><h3><Icon size={18} /> {title}</h3>{children}</article>; }
 function Toggle({ label, checked, onChange }) { return <label className="toggle-row"><span>{label}</span><button type="button" className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)}><span /></button></label>; }
 function Toast({ type, text, onClose }) { return <div className={`toast ${type}`}><span>{text}</span><button onClick={onClose}><X size={16} /></button></div>; }
-function WelcomeOverlay({ name }) { return <div className="welcome-overlay"><div className="welcome-card glass"><div className="welcome-orbit"><Sparkles size={28} /></div><span>Bem-vindo</span><strong>{name}</strong><p>Sua plataforma NEXARO IA esta pronta.</p></div></div>; }
+function WelcomeOverlay({ name }) { return <div className="welcome-overlay"><div className="welcome-card glass"><div className="welcome-orbit"><img src={nexaroLogo} alt="NEXARO IA" /></div><span>Bem-vindo</span><strong>{name}</strong><p>Sua plataforma NEXARO IA esta pronta.</p></div></div>; }
 function LoadingScreen() { return <div className="auth-page"><div className="empty-state glass"><Sparkles size={28} /><strong>Carregando NEXARO IA</strong><span>Validando sessao segura.</span></div></div>; }
 function formatDate(value) { return value ? new Date(value).toLocaleString('pt-BR') : 'Sem registro'; }
 function groupDate(value) { const date = value ? new Date(value) : new Date(); const today = new Date(); const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()); const compare = new Date(date.getFullYear(), date.getMonth(), date.getDate()); const diff = Math.floor((start - compare) / 86400000); if (diff <= 0) return 'Hoje'; if (diff === 1) return 'Ontem'; if (diff <= 7) return 'Ultimos 7 dias'; return 'Ultimos 30 dias'; }
